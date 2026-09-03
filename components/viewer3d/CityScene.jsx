@@ -7,10 +7,11 @@ import useStore from '@/stores/useStore';
 import Underground from './Underground';
 import AirRights from './AirRights';
 import ProceduralCity from './ProceduralCity';
+import Route3D from './Route3D';
 import * as THREE from 'three';
 
 function Scene() {
-  const { layers } = useStore();
+  const { layers, isNavigating } = useStore();
 
   return (
     <>
@@ -33,6 +34,9 @@ function Scene() {
 
       <ProceduralCity />
 
+      {/* 3D Multi-Level Route Path from Point A to Point B */}
+      {isNavigating && <Route3D />}
+
       {(layers.waterPipelines || layers.sewerLines || layers.electricalLines || layers.gasLines) && (
         <Underground />
       )}
@@ -44,14 +48,34 @@ function Scene() {
 }
 
 function CameraController({ controlsRef }) {
-  const { selectedBuilding, selectedFloor, isExploded } = useStore();
+  const { selectedBuilding, selectedFloor, isExploded, isNavigating, navRoute } = useStore();
   const targetPos = useRef(new THREE.Vector3(0, 800, 1000));
   const targetLook = useRef(new THREE.Vector3(0, 0, 0));
   const isAnimating = useRef(false);
   const lastAnimatedId = useRef(null);
 
+  // Animate on 3D navigation activation
   useEffect(() => {
-    if (!selectedBuilding || !controlsRef.current) return;
+    if (!isNavigating || !navRoute || !controlsRef.current) return;
+    const waypoints = navRoute.waypoints;
+    if (!waypoints || waypoints.length < 2) return;
+
+    const start = waypoints[0];
+    const end = waypoints[waypoints.length - 1];
+    const midX = (start.x + end.x) / 2;
+    const midY = (start.y + end.y) / 2;
+    const midZ = (start.z + end.z) / 2;
+
+    const distSpan = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.z - start.z, 2));
+    const camDist = Math.max(160, distSpan * 0.95);
+
+    targetLook.current.set(midX, midY + 15, midZ);
+    targetPos.current.set(midX + camDist * 0.6, midY + camDist * 0.75, midZ + camDist * 0.7);
+    isAnimating.current = true;
+  }, [isNavigating, navRoute]);
+
+  useEffect(() => {
+    if (!selectedBuilding || !controlsRef.current || isNavigating) return;
     
     // Only fly camera when a NEW building is selected
     const buildingChanged = lastAnimatedId.current !== selectedBuilding.id;
@@ -72,7 +96,7 @@ function CameraController({ controlsRef }) {
     targetLook.current.set(cx, lookAtY, cz);
     targetPos.current.set(camX, camY, camZ);
     isAnimating.current = true;
-  }, [selectedBuilding, isExploded]);
+  }, [selectedBuilding, isExploded, isNavigating]);
 
   // Cancel animation on user mouse interaction
   useEffect(() => {

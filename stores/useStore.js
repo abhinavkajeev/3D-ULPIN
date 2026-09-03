@@ -49,6 +49,27 @@ const useStore = create((set, get) => ({
   dragMode: 'pan', // 'pan' | 'rotate'
   toggleDragMode: () => set((s) => ({ dragMode: s.dragMode === 'pan' ? 'rotate' : 'pan' })),
 
+  // ─── 3D Route Navigation ───
+  navigationActive: false,
+  navOrigin: null, // { name, coordinates: [lon, lat], worldPos: [x, y, z] }
+  navDestination: null, // { name, ulpin, floor, unit, worldPos: [x, y, z] }
+  navRoute: null, // { distance, duration, steps: [], path3D: [] }
+  isNavigating: false,
+  startNavigation: ({ origin, destination, route }) => set({
+    navigationActive: true,
+    navOrigin: origin,
+    navDestination: destination,
+    navRoute: route,
+    isNavigating: true,
+  }),
+  stopNavigation: () => set({
+    navigationActive: false,
+    navOrigin: null,
+    navDestination: null,
+    navRoute: null,
+    isNavigating: false,
+  }),
+
   // ─── Layer Visibility ───
   layers: {
     parcels: true,
