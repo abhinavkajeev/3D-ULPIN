@@ -1,0 +1,18 @@
+{
+  "name": "3d-cadastre-backend",
+  "version": "1.0.0",
+  "description": "PostGIS + Node.js backend for 3D Cadastral ULPIN Portal",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

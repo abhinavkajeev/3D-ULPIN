@@ -1,0 +1,67 @@
+// Chennai zones and administrative data
+export const zones = [
+  {
+    id: 'zone-vad',
+    name: 'Vadapalani',
+    code: 'VAD',
+    ward: 'Ward 128',
+    center: { lat: 13.0511, lon: 80.2081 },
+    type: 'commercial-transit',
+    color: '#00d4ff',
+  },
+  {
+    id: 'zone-1',
+    name: 'T. Nagar',
+    code: 'TNR',
+    ward: 'Ward 125',
+    center: { lat: 13.0418, lon: 80.2341 },
+    type: 'residential-dense',
+    color: '#38bdf8',
+  },
+  {
+    id: 'zone-2',
+    name: 'Mylapore',
+    code: 'MYL',
+    ward: 'Ward 119',
+    center: { lat: 13.0337, lon: 80.2699 },
+    type: 'mixed',
+    color: '#a855f7',
+  },
+  {
+    id: 'zone-3',
+    name: 'Anna Nagar',
+    code: 'ANN',
+    ward: 'Ward 96',
+    center: { lat: 13.0850, lon: 80.2101 },
+    type: 'residential-modern',
+    color: '#14b8a6',
+  },
+  {
+    id: 'zone-4',
+    name: 'Adyar',
+    code: 'ADY',
+    ward: 'Ward 173',
+    center: { lat: 13.0067, lon: 80.2572 },
+    type: 'institutional',
+    color: '#f59e0b',
+  },
+  {
+    id: 'zone-5',
+    name: 'Guindy',
+    code: 'GND',
+    ward: 'Ward 155',
+    center: { lat: 13.0067, lon: 80.2206 },
+    type: 'commercial',
+    color: '#f43f5e',
+  },
+];
+
+export const districtInfo = {
+  state: 'Tamil Nadu',
+  stateCode: 'TN',
+  district: 'Chennai',
+  districtCode: 'CHN',
+  totalArea: '426 sq.km',
+  totalZones: 15,
+  totalWards: 200,
+};
