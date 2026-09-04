@@ -1,287 +1,446 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Navigation, MapPin, X, ArrowRight, Building, Layers, Search, Check, Flag, Compass } from 'lucide-react';
+import {
+  Navigation, MapPin, X, Building, Layers, Search,
+  Flag, Compass, Loader2, AlertCircle, CheckCircle2, ArrowRight,
+  ChevronRight, Clock, Route, Zap,
+} from 'lucide-react';
 import useStore from '@/stores/useStore';
 import { REAL_VADAPALANI_LOCATIONS, calculate3DRoute } from '@/lib/routeEngine';
-import { buildings } from '@/data/buildings';
+
+// ── Step type icons ────────────────────────────────────────────────────────────
+const STEP_ICON = {
+  start:    { icon: '🟢', color: 'text-emerald-400' },
+  road:     { icon: '🛣️',  color: 'text-slate-300' },
+  gate:     { icon: '🏢', color: 'text-blue-400' },
+  elevator: { icon: '🛗', color: 'text-amber-400' },
+  indoor:   { icon: '🚪', color: 'text-rose-400' },
+  arrive:   { icon: '🎯', color: 'text-rose-400' },
+};
+
+function OriginCard({ location, selected, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-start gap-2.5 p-3 rounded-2xl text-left transition-all cursor-pointer border w-full ${
+        selected
+          ? 'bg-emerald-500/15 border-emerald-400/70 shadow-[0_0_20px_rgba(52,211,153,0.2)]'
+          : 'bg-white/4 border-white/6 hover:bg-white/8 hover:border-white/12'
+      }`}
+    >
+      <span className="text-lg leading-none mt-0.5">{location.icon}</span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <span className={`text-[10px] font-bold uppercase tracking-wider ${selected ? 'text-emerald-400' : 'text-slate-500'}`}>
+            {location.category}
+          </span>
+          {selected && (
+            <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+          )}
+        </div>
+        <p className={`text-xs font-semibold leading-snug ${selected ? 'text-emerald-100' : 'text-slate-200'}`}>
+          {location.name}
+        </p>
+        <p className="text-[10px] text-slate-500 mt-0.5 truncate">{location.address}</p>
+      </div>
+    </button>
+  );
+}
 
 export default function NavigationModal({ isOpen, onClose }) {
-  const { selectedBuilding, selectedFloor, selectedUnit, startNavigation, stopNavigation, isNavigating, navRoute, navOrigin } = useStore();
-  
-  // Point A state: selected landmark or custom coordinate
-  const [selectedOriginId, setSelectedOriginId] = useState(REAL_VADAPALANI_LOCATIONS[0].id);
-  
-  // Point B state: selectable via ULPIN search, building list, or current selection
-  const [targetBuildingId, setTargetBuildingId] = useState('');
-  const [targetFloorNumber, setTargetFloorNumber] = useState(2);
-  const [targetUnitNumber, setTargetUnitNumber] = useState(201);
-  const [ulpinSearchInput, setUlpinSearchInput] = useState('');
-  const [searchError, setSearchError] = useState('');
+  const {
+    selectedBuilding, selectedFloor, selectedUnit,
+    startNavigation, stopNavigation, isNavigating,
+  } = useStore();
 
-  // Available buildings in the city
+  // Point A
+  const [originId, setOriginId] = useState(REAL_VADAPALANI_LOCATIONS[0].id);
+
+  // Point B
+  const [targetBuildingId, setTargetBuildingId] = useState('');
+  const [targetFloor, setTargetFloor] = useState(2);
+  const [targetUnit, setTargetUnit] = useState(201);
+  const [ulpinQuery, setUlpinQuery] = useState('');
+  const [ulpinError, setUlpinError] = useState('');
+
+  // Route computation state
+  const [loading, setLoading] = useState(false);
+  const [routePreview, setRoutePreview] = useState(null); // { distanceMeters, durationMinutes }
+  const [error, setError] = useState('');
+
   const allBuildings = useMemo(() => {
-    if (typeof window !== 'undefined' && window.__CITY_BUILDINGS__ && window.__CITY_BUILDINGS__.length > 0) {
+    if (typeof window !== 'undefined' && window.__CITY_BUILDINGS__?.length > 0) {
       return window.__CITY_BUILDINGS__;
     }
-    return buildings;
-  }, []);
+    return [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
-  // Sync with current selection when modal opens
-  useMemo(() => {
-    if (selectedBuilding) {
+  // Auto-fill building from scene selection
+  useEffect(() => {
+    if (selectedBuilding && selectedBuilding.id !== targetBuildingId) {
       setTargetBuildingId(selectedBuilding.id);
-      setTargetFloorNumber(selectedFloor || 2);
-      setTargetUnitNumber(selectedUnit?.unitNumber || (Number(selectedFloor || 2) * 100 + 1));
+      setTargetFloor(selectedFloor || 2);
+      setTargetUnit(selectedUnit?.unitNumber || ((selectedFloor || 2) * 100 + 1));
     } else if (allBuildings.length > 0 && !targetBuildingId) {
       setTargetBuildingId(allBuildings[0].id);
-      setTargetFloorNumber(2);
-      setTargetUnitNumber(201);
     }
-  }, [selectedBuilding, selectedFloor, selectedUnit, allBuildings, targetBuildingId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBuilding, selectedFloor, selectedUnit, allBuildings]);
 
-  if (!isOpen) return null;
+  // Computed values (always run — before hooks that depend on them)
+  const origin = REAL_VADAPALANI_LOCATIONS.find(o => o.id === originId) || REAL_VADAPALANI_LOCATIONS[0];
+  const targetBldg = allBuildings.find(b => b.id === targetBuildingId) || allBuildings[0];
+  const maxFloors = targetBldg?.floors || 6;
 
-  const currentOrigin = REAL_VADAPALANI_LOCATIONS.find(o => o.id === selectedOriginId) || REAL_VADAPALANI_LOCATIONS[0];
-  const activeTargetBldg = allBuildings.find(b => b.id === targetBuildingId) || allBuildings[0];
-
-  // Handle direct ULPIN search input in the modal
-  const handleSearchULPIN = (e) => {
+  // ULPIN search handler (must be before conditional return)
+  const handleUlpinSearch = useCallback((e) => {
     e.preventDefault();
-    setSearchError('');
-    const query = ulpinSearchInput.trim().toUpperCase();
-    if (!query) return;
+    setUlpinError('');
+    const q = ulpinQuery.trim().toUpperCase();
+    if (!q) return;
 
-    // Pattern matching e.g. TN-CHN-VAD-TS1082-B01-F04-U402 or B01 / F04
-    const bMatch = query.match(/B(\d+)/i);
-    const fMatch = query.match(/F(\d+)/i);
-    const uMatch = query.match(/U(\d+)/i);
+    const bMatch = q.match(/B(\d+)/i);
+    const fMatch = q.match(/F(\d+)/i);
+    const uMatch = q.match(/U(\d+)/i);
 
-    let matchedBldg = null;
+    let matched = null;
     if (bMatch) {
-      const idx = (parseInt(bMatch[1], 10) - 1) % allBuildings.length;
-      matchedBldg = allBuildings[idx >= 0 ? idx : 0];
+      const idx = (parseInt(bMatch[1], 10) - 1 + allBuildings.length) % allBuildings.length;
+      matched = allBuildings[idx];
     } else {
-      matchedBldg = allBuildings.find(b => 
-        b.name?.toUpperCase().includes(query) || b.id?.toUpperCase().includes(query)
+      matched = allBuildings.find(b =>
+        b.name?.toUpperCase().includes(q) || b.id?.toUpperCase().includes(q)
       );
     }
 
-    if (matchedBldg) {
-      setTargetBuildingId(matchedBldg.id);
-      const floor = fMatch ? Math.min(Math.max(1, parseInt(fMatch[1], 10)), matchedBldg.floors || 6) : 2;
-      setTargetFloorNumber(floor);
-      const unit = uMatch ? parseInt(uMatch[1], 10) : (floor * 100 + 1);
-      setTargetUnitNumber(unit);
-      setSearchError('');
+    if (matched) {
+      setTargetBuildingId(matched.id);
+      const f = fMatch ? Math.min(Math.max(1, parseInt(fMatch[1], 10)), matched.floors || 6) : 2;
+      setTargetFloor(f);
+      setTargetUnit(uMatch ? parseInt(uMatch[1], 10) : f * 100 + 1);
     } else {
-      setSearchError(`No building found matching "${query}". Select from dropdown.`);
+      setUlpinError(`No match for "${q}". Try selecting from list.`);
     }
-  };
+  }, [ulpinQuery, allBuildings]);
 
-  const handleComputeRoute = () => {
-    if (!activeTargetBldg) return;
+  // Compute route (async — calls /api/route/road server-side Dijkstra)
+  const handleComputeRoute = useCallback(async () => {
+    if (!targetBldg) return;
+    setLoading(true);
+    setError('');
 
-    const unitObj = activeTargetBldg.units?.find(u => u.floor === targetFloorNumber) || {
-      unitNumber: targetUnitNumber,
-      floor: targetFloorNumber
-    };
+    try {
+      const unitObj = { unitNumber: targetUnit, floor: targetFloor };
+      const route = await calculate3DRoute(origin, targetBldg, targetFloor, unitObj);
 
-    // Calculate strictly road-network path to target floor/unit
-    const route = calculate3DRoute(currentOrigin, activeTargetBldg, targetFloorNumber, unitObj);
+      setRoutePreview({ distanceMeters: route.distanceMeters, durationMinutes: route.durationMinutes });
 
-    // Explode target building and highlight floor
-    useStore.setState({
-      selectedBuilding: activeTargetBldg,
-      isExploded: true,
-      selectedFloor: targetFloorNumber,
-      selectedUnit: unitObj,
-    });
+      useStore.setState({
+        selectedBuilding: targetBldg,
+        isExploded: true,
+        selectedFloor: targetFloor,
+        selectedUnit: unitObj,
+      });
 
-    startNavigation({
-      origin: currentOrigin,
-      destination: {
-        building: activeTargetBldg,
-        floor: targetFloorNumber,
-        unit: unitObj
-      },
-      route
-    });
+      startNavigation({
+        origin,
+        destination: { building: targetBldg, floor: targetFloor, unit: unitObj },
+        route,
+      });
 
-    onClose();
-  };
+      onClose();
+    } catch (err) {
+      setError('Route calculation failed. Check connection & try again.');
+      console.error('[NavigationModal]', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [origin, targetBldg, targetFloor, targetUnit, startNavigation, onClose]);
+
+  // ── Early return AFTER all hooks ──────────────────────────────────────────
+  if (!isOpen) return null;
+
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0, y: 20 }}
-        className="w-full max-w-xl glass-strong border border-cyan-500/40 rounded-3xl p-6 shadow-[0_0_60px_rgba(6,182,212,0.3)] space-y-5 max-h-[90vh] overflow-y-auto scrollbar-thin"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-400/50 flex items-center justify-center shadow-glow-cyan">
-              <Navigation className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                3D Road Route & ULPIN Navigator
-              </h2>
-              <p className="text-[11px] text-text-muted">Strict road-network travel from Point A to exact Floor & Unit</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-text-muted hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-lg">
+          <motion.div
+            initial={{ scale: 0.93, opacity: 0, y: 24 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.93, opacity: 0, y: 24 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+            className="w-full max-w-2xl max-h-[92vh] overflow-y-auto scrollbar-thin rounded-3xl shadow-[0_0_80px_rgba(6,182,212,0.25)]"
+            style={{ background: 'rgba(6,8,20,0.97)', border: '1px solid rgba(6,182,212,0.3)' }}
           >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* ─── POINT A: Starting Location ─── */}
-        <div className="space-y-2.5">
-          <label className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block shadow-[0_0_10px_#34d399]" />
-            1. Select Departure Point (Point A)
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {REAL_VADAPALANI_LOCATIONS.map(origin => (
+            {/* ── Header ───────────────────────────────────────────────────── */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-white/8"
+              style={{ background: 'rgba(6,8,20,0.98)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'rgba(6,182,212,0.15)', border: '1px solid rgba(6,182,212,0.4)' }}>
+                  <Navigation className="w-5 h-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-white tracking-wide">3D Road Route Navigator</h2>
+                  <p className="text-[11px] text-slate-500">Real road routing • Exact floor & unit destination</p>
+                </div>
+              </div>
               <button
-                key={origin.id}
-                onClick={() => setSelectedOriginId(origin.id)}
-                className={`flex flex-col p-2.5 rounded-2xl text-left transition-all cursor-pointer border ${
-                  selectedOriginId === origin.id
-                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-200 shadow-[0_0_15px_rgba(52,211,153,0.25)]'
-                    : 'bg-white/5 border-white/5 text-slate-300 hover:bg-white/10 hover:border-white/10'
-                }`}
+                onClick={onClose}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
               >
-                <div className="flex items-center justify-between w-full mb-1">
-                  <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider">{origin.category}</span>
-                  {selectedOriginId === origin.id && (
-                    <span className="text-[9px] font-extrabold bg-emerald-400 text-slate-950 px-1.5 py-0.5 rounded-full">Active</span>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* ── Section A: Starting Point ───────────────────────────── */}
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                    <span className="text-[9px] font-black text-white">A</span>
+                  </div>
+                  <label className="text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                    Starting Point
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
+                  {REAL_VADAPALANI_LOCATIONS.map(loc => (
+                    <OriginCard
+                      key={loc.id}
+                      location={loc}
+                      selected={originId === loc.id}
+                      onClick={() => setOriginId(loc.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              {/* ── Connector ──────────────────────────────────────────── */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gradient-to-r from-emerald-500/40 via-cyan-500/40 to-rose-500/40" />
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold text-cyan-400"
+                  style={{ border: '1px solid rgba(6,182,212,0.3)', background: 'rgba(6,182,212,0.08)' }}>
+                  <Route className="w-3 h-3" />
+                  Road Route
+                </div>
+                <div className="flex-1 h-px bg-gradient-to-r from-rose-500/40 via-cyan-500/40 to-emerald-500/40" />
+              </div>
+
+              {/* ── Section B: Destination ─────────────────────────────── */}
+              <section className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0">
+                    <span className="text-[9px] font-black text-white">B</span>
+                  </div>
+                  <label className="text-xs font-bold text-rose-400 uppercase tracking-widest">
+                    Destination — ULPIN Address
+                  </label>
+                </div>
+
+                {/* ULPIN Search */}
+                <form onSubmit={handleUlpinSearch} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                    <input
+                      type="text"
+                      value={ulpinQuery}
+                      onChange={e => { setUlpinQuery(e.target.value); setUlpinError(''); }}
+                      placeholder="ULPIN: TN-CHN-VAD-TS1082-B01-F03-U301"
+                      className="w-full rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400 transition-colors"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-cyan-300 hover:text-cyan-100 transition-all cursor-pointer shrink-0"
+                    style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.35)' }}
+                  >
+                    Resolve
+                  </button>
+                </form>
+
+                {ulpinError && (
+                  <div className="flex items-center gap-2 text-[11px] text-rose-400">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {ulpinError}
+                  </div>
+                )}
+
+                {/* Building / Floor / Unit selectors */}
+                <div className="rounded-2xl p-4 space-y-3"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(244,63,94,0.25)' }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Building */}
+                    <div className="sm:col-span-1">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Building
+                      </label>
+                      <select
+                        value={targetBuildingId}
+                        onChange={e => setTargetBuildingId(e.target.value)}
+                        className="w-full rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-400 transition-colors cursor-pointer"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        {allBuildings.slice(0, 40).map(b => (
+                          <option key={b.id} value={b.id} style={{ background: '#0a0c1a' }}>
+                            {b.name} ({b.floors}F)
+                          </option>
+                        ))}
+                        {allBuildings.length === 0 && (
+                          <option value="" style={{ background: '#0a0c1a' }}>Loading city buildings…</option>
+                        )}
+                      </select>
+                    </div>
+
+                    {/* Floor */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Floor
+                      </label>
+                      <select
+                        value={targetFloor}
+                        onChange={e => {
+                          const f = parseInt(e.target.value, 10);
+                          setTargetFloor(f);
+                          setTargetUnit(f * 100 + 1);
+                        }}
+                        className="w-full rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-400 transition-colors cursor-pointer"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      >
+                        {Array.from({ length: maxFloors }, (_, i) => (
+                          <option key={i + 1} value={i + 1} style={{ background: '#0a0c1a' }}>
+                            Floor {i + 1}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Unit */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                        Unit #
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={targetUnit}
+                        onChange={e => setTargetUnit(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                        className="w-full rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-400 transition-colors"
+                        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Destination summary */}
+                  {targetBldg && (
+                    <div className="pt-2 border-t border-white/6 flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs">
+                        <Building className="w-3.5 h-3.5 text-rose-400" />
+                        <span className="text-slate-200 font-medium truncate max-w-[160px]">{targetBldg.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-mono font-bold text-cyan-300 px-2 py-0.5 rounded-lg"
+                          style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.3)' }}>
+                          Floor {targetFloor} · Unit #{targetUnit}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <p className="text-xs font-semibold leading-snug">{origin.name}</p>
-                <p className="text-[10px] text-text-muted mt-0.5 truncate">{origin.address}</p>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* ─── POINT B: Target Destination (via ULPIN or Building Picker) ─── */}
-        <div className="space-y-3 pt-3 border-t border-border">
-          <label className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-rose-400 inline-block shadow-[0_0_10px_#f43f5e]" />
-            2. Choose Target Destination (Point B using ULPIN)
-          </label>
+                {/* Scene hint */}
+                {!selectedBuilding && (
+                  <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
+                    <Zap className="w-3 h-3 text-cyan-500" />
+                    Tip: Click any building in the 3D scene to auto-select it as destination
+                  </p>
+                )}
+                {selectedBuilding && (
+                  <p className="text-[11px] text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Scene selection: <span className="font-semibold">{selectedBuilding.name}</span>
+                  </p>
+                )}
+              </section>
 
-          {/* Quick ULPIN Search Input */}
-          <form onSubmit={handleSearchULPIN} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-              <input
-                type="text"
-                value={ulpinSearchInput}
-                onChange={(e) => setUlpinSearchInput(e.target.value)}
-                placeholder="Enter ULPIN (e.g. TN-CHN-VAD-TS1082-B01-F04-U402)"
-                className="w-full bg-slate-950/80 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-colors"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 transition-colors cursor-pointer shrink-0"
-            >
-              Resolve ULPIN
-            </button>
-          </form>
-
-          {searchError && (
-            <p className="text-[11px] text-rose-400 font-medium">{searchError}</p>
-          )}
-
-          {/* Destination Building & Floor Selectors */}
-          <div className="p-4 rounded-2xl bg-slate-950/80 border border-rose-500/30 space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] text-text-muted font-semibold uppercase block mb-1">Target Building</label>
-                <select
-                  value={targetBuildingId}
-                  onChange={(e) => setTargetBuildingId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-rose-400"
+              {/* ── Route Preview ──────────────────────────────────────── */}
+              {routePreview && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center gap-4 rounded-2xl p-3"
+                  style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.3)' }}
                 >
-                  {allBuildings.slice(0, 30).map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.floors || 4} Floors)
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-300">
+                    <Route className="w-3.5 h-3.5" />
+                    <span className="font-bold">{routePreview.distanceMeters}m</span>
+                  </div>
+                  <div className="h-3 w-px bg-white/10" />
+                  <div className="flex items-center gap-1.5 text-xs text-emerald-300">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span className="font-bold">~{routePreview.durationMinutes} min</span>
+                  </div>
+                  <div className="flex-1" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                </motion.div>
+              )}
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-text-muted font-semibold uppercase block mb-1">Target Floor</label>
-                  <select
-                    value={targetFloorNumber}
-                    onChange={(e) => {
-                      const f = parseInt(e.target.value, 10);
-                      setTargetFloorNumber(f);
-                      setTargetUnitNumber(f * 100 + 1);
-                    }}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-rose-400"
+              {/* ── Error ─────────────────────────────────────────────── */}
+              {error && (
+                <div className="flex items-center gap-2 text-xs text-rose-400 rounded-xl p-3"
+                  style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.25)' }}>
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
+              {/* ── Action Buttons ─────────────────────────────────────── */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-xl text-xs font-medium text-slate-500 hover:text-white transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                {isNavigating && (
+                  <button
+                    onClick={() => { stopNavigation(); onClose(); }}
+                    className="px-4 py-2.5 rounded-xl text-xs font-medium text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                    style={{ border: '1px solid rgba(244,63,94,0.3)' }}
                   >
-                    {Array.from({ length: activeTargetBldg?.floors || 4 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        Floor {i + 1}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    Stop Active Route
+                  </button>
+                )}
 
-                <div>
-                  <label className="text-[10px] text-text-muted font-semibold uppercase block mb-1">Target Unit</label>
-                  <input
-                    type="number"
-                    value={targetUnitNumber}
-                    onChange={(e) => setTargetUnitNumber(parseInt(e.target.value, 10))}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-rose-400"
-                  />
-                </div>
+                <button
+                  onClick={handleComputeRoute}
+                  disabled={loading || !targetBldg}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer shadow-[0_0_20px_rgba(6,182,212,0.3)]"
+                  style={{ background: 'linear-gradient(135deg, #0891b2, #06b6d4, #22d3ee)' }}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Computing…
+                    </>
+                  ) : (
+                    <>
+                      <Compass className="w-4 h-4" />
+                      Start 3D Navigation
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-
-            {/* Generated Destination Summary */}
-            <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-300">
-              <span className="flex items-center gap-1.5 text-slate-200 font-medium">
-                <Building className="w-3.5 h-3.5 text-rose-400" />
-                {activeTargetBldg?.name}
-              </span>
-              <span className="text-[11px] font-mono text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/30 px-2 py-0.5 rounded-lg">
-                Level {targetFloorNumber} • Door #{targetUnitNumber}
-              </span>
-            </div>
-          </div>
+          </motion.div>
         </div>
-
-        {/* Action Controls */}
-        <div className="pt-2 flex items-center justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-xs font-medium text-text-muted hover:text-white transition-colors cursor-pointer"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleComputeRoute}
-            className="px-6 py-2.5 rounded-xl text-xs font-bold gradient-bg text-bg-primary hover:opacity-95 shadow-glow-cyan flex items-center gap-2 cursor-pointer transition-all"
-          >
-            <Compass className="w-4 h-4" />
-            Compute Road Route in 3D
-          </button>
-        </div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

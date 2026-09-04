@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Globe2, Map, SplitSquareHorizontal, ZoomIn, ZoomOut, RotateCcw, Move3d, RotateCw, Navigation, X, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Globe2, Map, SplitSquareHorizontal, ZoomIn, ZoomOut, RotateCcw, Move3d, RotateCw, Navigation } from 'lucide-react';
 import useStore from '@/stores/useStore';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
@@ -12,6 +12,7 @@ import FloorPanel from '@/components/panels/FloorPanel';
 import PropertyPanel from '@/components/panels/PropertyPanel';
 import Certificate from '@/components/ui/Certificate';
 import NavigationModal from '@/components/ui/NavigationModal';
+import RouteHUD from '@/components/ui/RouteHUD';
 
 // Dynamic imports for 3D and Map (no SSR)
 const CityScene = dynamic(() => import('@/components/viewer3d/CityScene'), { ssr: false });
@@ -26,7 +27,7 @@ function DragModeIcon() {
 }
 
 export default function ViewerPage() {
-  const { viewMode, setViewMode, rightPanel, selectedBuilding, selectedFloor, selectedUnit, sidebarOpen, dragMode, toggleDragMode, isNavigating, navRoute, navOrigin, stopNavigation } = useStore();
+  const { viewMode, setViewMode, rightPanel, selectedBuilding, selectedFloor, selectedUnit, sidebarOpen, dragMode, toggleDragMode, isNavigating } = useStore();
   const [topNavModalOpen, setTopNavModalOpen] = useState(false);
 
   return (
@@ -34,6 +35,7 @@ export default function ViewerPage() {
       <Header />
       <Sidebar />
       <NavigationModal isOpen={topNavModalOpen} onClose={() => setTopNavModalOpen(false)} />
+      <RouteHUD />
 
       {/* Main Content */}
       <main
@@ -128,49 +130,7 @@ export default function ViewerPage() {
             )}
           </div>
 
-          {/* Active 3D Route HUD Banner */}
-          {isNavigating && navRoute && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="absolute top-18 left-1/2 -translate-x-1/2 w-11/12 max-w-xl glass-strong border border-emerald-500/40 rounded-2xl p-4 shadow-[0_0_30px_rgba(16,185,129,0.25)] z-20"
-            >
-              <div className="flex items-center justify-between border-b border-border/60 pb-2.5 mb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span className="text-xs font-black text-emerald-300 uppercase tracking-wider">
-                    3D Multi-Level Route Navigation Active
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono font-bold text-cyan-300">
-                    {navRoute.distanceMeters}m • ~{navRoute.durationMinutes} min
-                  </span>
-                  <button
-                    onClick={stopNavigation}
-                    className="p-1 rounded-lg hover:bg-white/10 text-text-muted hover:text-white transition-colors"
-                    title="Stop Route"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Waypoint steps */}
-              <div className="space-y-1.5 max-h-32 overflow-y-auto scrollbar-thin pr-1 text-xs">
-                {navRoute.steps?.map((step, sIdx) => (
-                  <div key={sIdx} className="flex items-start gap-2 text-slate-200">
-                    <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {sIdx + 1}
-                    </span>
-                    <span className="flex-1 text-[11px] leading-relaxed">{step.text}</span>
-                    <span className="text-[10px] font-mono text-cyan-400 font-bold shrink-0">{step.dist}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
+          {/* Route HUD is rendered as a fixed panel via RouteHUD component */}
 
           {/* Bottom Info Bar */}
           <div className="absolute bottom-4 left-4 right-4 flex justify-between items-end pointer-events-none z-10">
