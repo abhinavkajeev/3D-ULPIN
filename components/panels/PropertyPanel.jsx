@@ -10,6 +10,7 @@ import NavigationModal from '@/components/ui/NavigationModal';
 export default function PropertyPanel() {
   const { selectedBuilding, selectedUnit, selectedFloor, selectUnit, setRightPanel } = useStore();
   const [copied, setCopied] = useState(false);
+  const [navModalOpen, setNavModalOpen] = useState(false);
 
   if (!selectedBuilding || !selectedUnit) return null;
 
@@ -37,7 +38,6 @@ export default function PropertyPanel() {
   };
 
   const status = statusStyles[selectedUnit.status] || statusStyles.pending;
-  const [navModalOpen, setNavModalOpen] = useState(false);
 
   return (
     <>
