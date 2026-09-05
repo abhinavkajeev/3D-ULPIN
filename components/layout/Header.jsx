@@ -16,8 +16,6 @@ const navItems = [
   { href: '/', label: '3D Viewer', icon: Globe2 },
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/ulpin', label: 'ULPIN Generator', icon: Fingerprint },
-  { href: '/validation', label: 'Validation', icon: ShieldCheck },
-  { href: '/ai-engine', label: 'AI Engine', icon: BrainCircuit },
   { href: '/standards', label: 'Standards', icon: FileCode2 },
 ];
 

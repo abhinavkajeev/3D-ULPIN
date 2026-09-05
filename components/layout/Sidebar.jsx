@@ -42,35 +42,54 @@ const layerGroups = [
       { key: 'airRights', label: 'Air Rights', icon: CloudSun, color: 'bg-accent-purple' },
     ],
   },
-  {
-    title: 'Analysis',
-    layers: [
-      { key: 'floorBoundaries', label: 'Floor Boundaries', icon: Layers, color: 'bg-accent-teal' },
-    ],
-  },
 ];
+
+const UNCONFIGURED_LAYERS = {
+  dem: 'Raster DEM required',
+  dsm: 'Surface Model required',
+  lidar: 'LAS/LAZ point cloud required',
+};
 
 function LayerToggle({ layer, isActive, onToggle }) {
   const Icon = layer.icon;
+  const unconfiguredNotice = UNCONFIGURED_LAYERS[layer.key];
+
   return (
-    <button
-      onClick={onToggle}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 ${
-        isActive
-          ? 'bg-white/5 text-text-primary'
-          : 'text-text-muted hover:text-text-secondary hover:bg-white/3'
-      }`}
-    >
-      <div className={`w-5 h-5 rounded flex items-center justify-center ${isActive ? layer.color + '/20' : 'bg-white/5'}`}>
-        <Icon className={`w-3 h-3 ${isActive ? 'opacity-100' : 'opacity-40'}`} />
-      </div>
-      <span className="flex-1 text-left">{layer.label}</span>
-      {isActive ? (
-        <Eye className="w-3.5 h-3.5 text-accent-cyan" />
-      ) : (
-        <EyeOff className="w-3.5 h-3.5 text-text-muted/50" />
+    <div className="relative group">
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all duration-200 ${
+          isActive
+            ? 'bg-white/5 text-text-primary'
+            : 'text-text-muted hover:text-text-secondary hover:bg-white/3'
+        }`}
+      >
+        <div className={`w-5 h-5 rounded flex items-center justify-center ${isActive ? layer.color + '/20' : 'bg-white/5'}`}>
+          <Icon className={`w-3 h-3 ${isActive ? 'opacity-100' : 'opacity-40'}`} />
+        </div>
+        <div className="flex-1 text-left min-w-0">
+          <p className="truncate leading-tight">{layer.label}</p>
+          {unconfiguredNotice && isActive && (
+            <p className="text-[9px] text-amber-400/90 font-mono leading-tight truncate">
+              Source not configured
+            </p>
+          )}
+        </div>
+        {isActive ? (
+          <Eye className={`w-3.5 h-3.5 ${unconfiguredNotice ? 'text-amber-400' : 'text-accent-cyan'}`} />
+        ) : (
+          <EyeOff className="w-3.5 h-3.5 text-text-muted/50" />
+        )}
+      </button>
+
+      {unconfiguredNotice && (
+        <div className="hidden group-hover:block absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none">
+          <div className="bg-slate-900 border border-amber-500/40 text-amber-300 text-[10px] px-2.5 py-1 rounded-md shadow-lg whitespace-nowrap">
+            ⚠️ {unconfiguredNotice}
+          </div>
+        </div>
       )}
-    </button>
+    </div>
   );
 }
 

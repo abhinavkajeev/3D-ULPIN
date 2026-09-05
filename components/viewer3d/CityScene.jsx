@@ -7,6 +7,7 @@ import useStore from '@/stores/useStore';
 import Underground from './Underground';
 import AirRights from './AirRights';
 import ProceduralCity from './ProceduralCity';
+import FloorBoundaries3D from './FloorBoundaries3D';
 import Route3D from './Route3D';
 import * as THREE from 'three';
 
@@ -36,6 +37,8 @@ function Scene() {
 
       {/* 3D Multi-Level Route Path from Point A to Point B */}
       {isNavigating && <Route3D />}
+
+      {layers.floorBoundaries && <FloorBoundaries3D />}
 
       {(layers.waterPipelines || layers.sewerLines || layers.electricalLines || layers.gasLines) && (
         <Underground />

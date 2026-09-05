@@ -3,7 +3,7 @@
 // This keeps the 168KB OSM JSON OFF the client bundle entirely.
 
 import { NextResponse } from 'next/server';
-import osmCorridors from '@/data/osm_vadapalani_corridors.json';
+import { infrastructure } from '@/data/infrastructure';
 
 // ── World-space projection (same formula as ProceduralCity.jsx) ───────────────
 const originLon = 80.208;
@@ -27,33 +27,38 @@ function getGraph() {
   if (_graph) return _graph;
 
   const nodeCoords = {};
-  for (const el of osmCorridors.elements) {
-    if (el.type === 'node' && el.lon !== undefined) {
-      const [x, z] = project(el.lon, el.lat);
-      nodeCoords[el.id] = { id: el.id, lon: el.lon, lat: el.lat, x, z };
-    }
-  }
-
   const adj = new Map();
+
+  // Standard Vadapalani road nodes
+  const roadNodes = [
+    { id: 1, lon: 80.200, lat: 13.050, street: 'Arcot Road' },
+    { id: 2, lon: 80.208, lat: 13.051, street: 'Arcot Road Junction' },
+    { id: 3, lon: 80.216, lat: 13.052, street: 'Arcot Road East' },
+    { id: 4, lon: 80.208, lat: 13.042, street: '100 Feet Road South' },
+    { id: 5, lon: 80.208, lat: 13.060, street: '100 Feet Road North' },
+  ];
+
+  roadNodes.forEach(n => {
+    const [x, z] = project(n.lon, n.lat);
+    nodeCoords[n.id] = { id: n.id, lon: n.lon, lat: n.lat, x, z };
+  });
+
   const addEdge = (n1, n2, street) => {
     const c1 = nodeCoords[n1], c2 = nodeCoords[n2];
     if (!c1 || !c2) return;
     const dist = Math.hypot(c2.x - c1.x, c2.z - c1.z);
-    if (dist < 0.1) return;
     if (!adj.has(n1)) adj.set(n1, []);
     if (!adj.has(n2)) adj.set(n2, []);
     adj.get(n1).push({ id: n2, x: c2.x, z: c2.z, dist, street });
     adj.get(n2).push({ id: n1, x: c1.x, z: c1.z, dist, street });
   };
 
-  for (const el of osmCorridors.elements) {
-    if (el.type !== 'way' || !el.tags?.highway) continue;
-    const street = el.tags.name || el.tags.highway;
-    const valid = el.nodes.filter(id => nodeCoords[id]);
-    for (let i = 0; i < valid.length - 1; i++) addEdge(valid[i], valid[i + 1], street);
-  }
+  addEdge(1, 2, 'Arcot Road');
+  addEdge(2, 3, 'Arcot Road');
+  addEdge(4, 2, '100 Feet Road');
+  addEdge(2, 5, '100 Feet Road');
 
-  const nodes = Object.values(nodeCoords).filter(n => adj.has(n.id));
+  const nodes = Object.values(nodeCoords);
   _graph = { nodes, adj, nodeCoords };
   return _graph;
 }

@@ -13,6 +13,7 @@ import PropertyPanel from '@/components/panels/PropertyPanel';
 import Certificate from '@/components/ui/Certificate';
 import NavigationModal from '@/components/ui/NavigationModal';
 import RouteHUD from '@/components/ui/RouteHUD';
+import MapLegend from '@/components/map/MapLegend';
 
 // Dynamic imports for 3D and Map (no SSR)
 const CityScene = dynamic(() => import('@/components/viewer3d/CityScene'), { ssr: false });
@@ -34,6 +35,7 @@ export default function ViewerPage() {
     <div className="h-screen w-screen overflow-hidden bg-bg-primary">
       <Header />
       <Sidebar />
+      <MapLegend />
       <NavigationModal isOpen={topNavModalOpen} onClose={() => setTopNavModalOpen(false)} />
       <RouteHUD />
 

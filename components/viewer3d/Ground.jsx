@@ -52,18 +52,28 @@ export default function Ground() {
         </group>
       ))}
 
-      {/* Green Zones (Parks) */}
+      {/* Green Zones (Parks & Cadastral Parcels) */}
       {layers.parcels && (
-        <>
+        <group position={[0, 0.05, 0]}>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[80, 0.02, 60]} receiveShadow>
             <planeGeometry args={[60, 40]} />
-            <meshStandardMaterial color="#86efac" roughness={1} />
+            <meshStandardMaterial color="#00d4ff" transparent opacity={0.25} roughness={1} />
           </mesh>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-50, 0.02, -80]} receiveShadow>
             <planeGeometry args={[90, 70]} />
-            <meshStandardMaterial color="#86efac" roughness={1} />
+            <meshStandardMaterial color="#00d4ff" transparent opacity={0.25} roughness={1} />
           </mesh>
-        </>
+        </group>
+      )}
+
+      {/* Admin Boundaries in 3D */}
+      {layers.adminBoundaries && (
+        <group position={[0, 0.1, 0]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+            <ringGeometry args={[290, 295, 64]} />
+            <meshBasicMaterial color="#f59e0b" transparent opacity={0.4} side={THREE.DoubleSide} />
+          </mesh>
+        </group>
       )}
     </group>
   );

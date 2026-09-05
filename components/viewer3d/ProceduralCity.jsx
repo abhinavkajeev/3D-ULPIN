@@ -129,7 +129,7 @@ function BatchedBuildings({ buildings }) {
 }
 
 export default function ProceduralCity() {
-  const { selectedBuilding } = useStore();
+  const { selectedBuilding, layers } = useStore();
 
   const processedBuildings = useMemo(() => {
     const withDistance = buildingsData.map(b => {
@@ -204,17 +204,22 @@ export default function ProceduralCity() {
 
   return (
     <group>
-      {/* Single merged mesh for all non-selected buildings (1 draw call) */}
-      <BatchedBuildings buildings={staticBuildings} />
+      {/* Conditionally render buildings based on layers.buildings toggle */}
+      {layers.buildings && (
+        <>
+          {/* Single merged mesh for all non-selected buildings (1 draw call) */}
+          <BatchedBuildings buildings={staticBuildings} />
 
-      {/* Invisible click hitboxes so user can click any building to select it */}
-      {staticBuildings.map((building) => (
-        <ClickableHitbox key={building.id} data={building} />
-      ))}
+          {/* Invisible click hitboxes so user can click any building to select it */}
+          {staticBuildings.map((building) => (
+            <ClickableHitbox key={building.id} data={building} />
+          ))}
 
-      {/* Only the selected building renders as full interactive component */}
-      {interactiveBuilding && (
-        <ProceduralBuilding key={interactiveBuilding.id} data={interactiveBuilding} />
+          {/* Only the selected building renders as full interactive component */}
+          {interactiveBuilding && (
+            <ProceduralBuilding key={interactiveBuilding.id} data={interactiveBuilding} />
+          )}
+        </>
       )}
 
       <TileGrid />
