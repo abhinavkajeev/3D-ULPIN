@@ -67,11 +67,11 @@ export default function Header() {
       // Parse building code (e.g. B01, B02, B03, B1053)
       const bldgMatch = q.match(/b(\d+)/i);
       const bldgIndex = bldgMatch ? parseInt(bldgMatch[1], 10) : 1;
-      
+
       // Parse floor number (e.g. F02 -> 2, F04 -> 4)
       const floorMatch = q.match(/f(\d+)/i);
       const floorNum = floorMatch ? parseInt(floorMatch[1], 10) : 2;
-      
+
       // Parse unit number (e.g. U201, U402)
       const unitMatch = q.match(/u(\d+)/i);
       const unitNum = unitMatch ? parseInt(unitMatch[1], 10) : (floorNum * 100 + 1);
@@ -167,7 +167,7 @@ export default function Header() {
             <MapPin className="w-5 h-5 text-bg-primary" />
           </div>
           <div className="hidden sm:block">
-            <h1 className="text-sm font-bold gradient-text leading-tight">3D Cadastre</h1>
+            <h1 className="text-sm font-bold gradient-text leading-tight">3D ULPIN</h1>
             <p className="text-[10px] text-text-muted leading-tight">ULPIN Portal</p>
           </div>
         </Link>
@@ -181,11 +181,10 @@ export default function Header() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 no-underline ${
-                  isActive
+                className={`relative flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 no-underline ${isActive
                     ? 'text-accent-cyan bg-accent-cyan/10'
                     : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{item.label}</span>
@@ -237,13 +236,12 @@ export default function Header() {
                       onClick={() => handleResultClick(result)}
                       className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors border-b border-border/30 last:border-0"
                     >
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                        result.type === 'building' ? 'bg-accent-purple/15' :
-                        result.type === 'parcel' ? 'bg-accent-cyan/15' : 'bg-accent-green/15'
-                      }`}>
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${result.type === 'building' ? 'bg-accent-purple/15' :
+                          result.type === 'parcel' ? 'bg-accent-cyan/15' : 'bg-accent-green/15'
+                        }`}>
                         {result.type === 'building' ? <Building2 className="w-3.5 h-3.5 text-accent-purple" /> :
-                         result.type === 'parcel' ? <MapPin className="w-3.5 h-3.5 text-accent-cyan" /> :
-                         <Fingerprint className="w-3.5 h-3.5 text-accent-green" />}
+                          result.type === 'parcel' ? <MapPin className="w-3.5 h-3.5 text-accent-cyan" /> :
+                            <Fingerprint className="w-3.5 h-3.5 text-accent-green" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-semibold text-text-primary truncate">{result.label}</p>
@@ -262,10 +260,9 @@ export default function Header() {
               onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
               className="flex items-center gap-2 glass rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer hover:bg-white/5 transition-colors"
             >
-              <span className={`w-2 h-2 rounded-full ${
-                userRole === 'citizen' ? 'bg-accent-cyan' :
-                userRole === 'surveyor' ? 'bg-accent-teal' : 'bg-accent-purple'
-              }`} />
+              <span className={`w-2 h-2 rounded-full ${userRole === 'citizen' ? 'bg-accent-cyan' :
+                  userRole === 'surveyor' ? 'bg-accent-teal' : 'bg-accent-purple'
+                }`} />
               <span className="text-text-secondary hidden sm:inline">{currentRole?.label}</span>
               <ChevronDown className={`w-3 h-3 text-text-muted transition-transform ${roleDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -283,14 +280,12 @@ export default function Header() {
                     <button
                       key={role.id}
                       onClick={() => { setUserRole(role.id); setRoleDropdownOpen(false); }}
-                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium cursor-pointer transition-colors ${
-                        userRole === role.id ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
-                      }`}
+                      className={`w-full flex items-center gap-2 px-4 py-2.5 text-xs font-medium cursor-pointer transition-colors ${userRole === role.id ? 'bg-accent-cyan/10 text-accent-cyan' : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
+                        }`}
                     >
-                      <span className={`w-2 h-2 rounded-full ${
-                        role.id === 'citizen' ? 'bg-accent-cyan' :
-                        role.id === 'surveyor' ? 'bg-accent-teal' : 'bg-accent-purple'
-                      }`} />
+                      <span className={`w-2 h-2 rounded-full ${role.id === 'citizen' ? 'bg-accent-cyan' :
+                          role.id === 'surveyor' ? 'bg-accent-teal' : 'bg-accent-purple'
+                        }`} />
                       {role.label}
                     </button>
                   ))}
@@ -336,9 +331,8 @@ export default function Header() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium no-underline transition-colors ${
-                      isActive ? 'text-accent-cyan bg-accent-cyan/10' : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
-                    }`}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium no-underline transition-colors ${isActive ? 'text-accent-cyan bg-accent-cyan/10' : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}

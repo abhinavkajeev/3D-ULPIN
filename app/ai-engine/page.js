@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BrainCircuit, Upload, ScanLine, Building2, Layers, CheckCircle2, ArrowRight, ImageIcon, X, Eye, Cpu, Maximize, Box } from 'lucide-react';
+import { BrainCircuit, Upload, ScanLine, Building2, Layers, CheckCircle2, ArrowRight, ImageIcon, X, Eye, Cpu, Maximize, Box, Save, Loader2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import { useRouter } from 'next/navigation';
 
@@ -43,6 +43,8 @@ export default function AIEnginePage() {
   const [fileName, setFileName] = useState('');
   const [showDetections, setShowDetections] = useState(true);
   const [selectedDetection, setSelectedDetection] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleUpload = (name) => {
@@ -70,6 +72,30 @@ export default function AIEnginePage() {
 
   const handleViewIn3D = () => {
     router.push('/');
+  };
+
+  const handleImportToCadastre = async () => {
+    try {
+      setIsImporting(true);
+      const res = await fetch('http://localhost:4000/api/v1/ai/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buildings: demoDetections }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setImportSuccess(true);
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1500);
+      } else {
+        alert('Import failed: ' + data.error);
+      }
+    } catch (err) {
+      alert('Import error: ' + err.message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -324,11 +350,25 @@ export default function AIEnginePage() {
               <div className="flex gap-3">
                 <button onClick={handleReset} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer glass hover:bg-white/5 text-text-secondary transition-all">
                   <Upload className="w-4 h-4" />
-                  New Extraction
+                  New
                 </button>
-                <button onClick={handleViewIn3D} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold cursor-pointer gradient-bg text-bg-primary hover:opacity-90 transition-all">
+                <button onClick={handleViewIn3D} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold cursor-pointer glass hover:bg-white/5 text-text-primary transition-all">
                   <Eye className="w-4 h-4" />
-                  View in 3D
+                  View 3D
+                </button>
+                <button 
+                  onClick={handleImportToCadastre} 
+                  disabled={isImporting || importSuccess}
+                  className={`flex-[2] flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold cursor-pointer transition-all ${
+                    importSuccess ? 'bg-accent-green text-bg-primary' : 'gradient-bg text-bg-primary hover:opacity-90'
+                  }`}
+                >
+                  {isImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : 
+                   importSuccess ? <CheckCircle2 className="w-4 h-4" /> : 
+                   <Save className="w-4 h-4" />}
+                  {isImporting ? 'Importing...' : 
+                   importSuccess ? 'Imported to Cadastre!' : 
+                   'Import to Cadastre DB'}
                 </button>
               </div>
             </motion.div>

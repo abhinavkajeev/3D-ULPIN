@@ -7,6 +7,8 @@ const buildingsRouter = require('./routes/buildings');
 const ulpinRouter = require('./routes/ulpin');
 const validationRouter = require('./routes/validation');
 const infrastructureRouter = require('./routes/infrastructure');
+const dashboardRouter = require('./routes/dashboard');
+const aiRouter = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -51,6 +53,8 @@ app.use('/api/v1/buildings', buildingsRouter);
 app.use('/api/v1/ulpin', ulpinRouter);
 app.use('/api/v1/validation', validationRouter);
 app.use('/api/v1/infrastructure', infrastructureRouter);
+app.use('/api/v1/dashboard', dashboardRouter);
+app.use('/api/v1/ai', aiRouter);
 
 // 404 handler
 app.use((req, res) => {

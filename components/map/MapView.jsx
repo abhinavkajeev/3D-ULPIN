@@ -44,7 +44,9 @@ export default function MapView() {
         ],
       },
       center: [80.2341, 13.0418], // Chennai T. Nagar
-      zoom: 14,
+      zoom: 16.5,
+      pitch: 60,
+      bearing: -20,
     });
 
     map.current.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -116,6 +118,60 @@ export default function MapView() {
       map.current.on('mouseleave', 'parcels-fill', () => {
         if (map.current) map.current.getCanvas().style.cursor = '';
       });
+
+      // Fetch and render 3D buildings from backend
+      const loadBuildings = async () => {
+        try {
+          const res = await fetch('http://localhost:4000/api/v1/buildings');
+          const data = await res.json();
+          
+          const buildingsGeojson = {
+            type: 'FeatureCollection',
+            features: data.buildings
+              .filter(b => b.footprint) // Only buildings with polygons
+              .map(b => ({
+                type: 'Feature',
+                properties: {
+                  id: b.id,
+                  name: b.name,
+                  type: b.type,
+                  height: b.height || (b.floors * 3.5),
+                  color: b.type === 'residential' ? '#3b82f6' : (b.type === 'commercial' ? '#a855f7' : '#22c55e')
+                },
+                geometry: b.footprint
+              }))
+          };
+
+          map.current.addSource('buildings-source', {
+            type: 'geojson',
+            data: buildingsGeojson
+          });
+
+          map.current.addLayer({
+            id: 'buildings-3d',
+            type: 'fill-extrusion',
+            source: 'buildings-source',
+            paint: {
+              'fill-extrusion-color': ['get', 'color'],
+              'fill-extrusion-height': ['get', 'height'],
+              'fill-extrusion-base': 0,
+              'fill-extrusion-opacity': 0.85
+            }
+          });
+          
+          // Optional: Add hover/click for buildings
+          map.current.on('mouseenter', 'buildings-3d', () => {
+            if (map.current) map.current.getCanvas().style.cursor = 'pointer';
+          });
+          map.current.on('mouseleave', 'buildings-3d', () => {
+            if (map.current) map.current.getCanvas().style.cursor = '';
+          });
+        } catch (err) {
+          console.error("Failed to load 3D buildings:", err);
+        }
+      };
+
+      loadBuildings();
     });
   }, [selectParcel]);
 

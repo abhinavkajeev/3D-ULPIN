@@ -8,7 +8,8 @@ router.get('/', async (req, res) => {
     const { parcelId, type, search } = req.query;
     let sql = `
       SELECT b.*, p.survey_number, p.owner AS parcel_owner,
-        ST_Y(b.location::geometry) AS lat, ST_X(b.location::geometry) AS lon
+        ST_Y(b.location::geometry) AS lat, ST_X(b.location::geometry) AS lon,
+        ST_AsGeoJSON(b.footprint) AS footprint_geojson
       FROM buildings b
       LEFT JOIN parcels p ON b.parcel_id = p.id
       WHERE 1=1
@@ -37,7 +38,8 @@ router.get('/', async (req, res) => {
         floorHeight: parseFloat(r.floor_height),
         constructionYear: r.construction_year,
         status: r.status,
-        footprint: { width: parseFloat(r.footprint_width), depth: parseFloat(r.footprint_depth) },
+        footprint: r.footprint_geojson ? JSON.parse(r.footprint_geojson) : null,
+        dimensions: { width: parseFloat(r.footprint_width), depth: parseFloat(r.footprint_depth) },
         coordinates: { lat: r.lat, lon: r.lon },
       })),
     });
@@ -50,7 +52,8 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const bResult = await db.query(`
-      SELECT b.*, ST_Y(b.location::geometry) AS lat, ST_X(b.location::geometry) AS lon
+      SELECT b.*, ST_Y(b.location::geometry) AS lat, ST_X(b.location::geometry) AS lon,
+        ST_AsGeoJSON(b.footprint) AS footprint_geojson
       FROM buildings b WHERE b.id = $1
     `, [req.params.id]);
 
@@ -74,7 +77,8 @@ router.get('/:id', async (req, res) => {
       floorHeight: parseFloat(b.floor_height),
       constructionYear: b.construction_year,
       status: b.status,
-      footprint: { width: parseFloat(b.footprint_width), depth: parseFloat(b.footprint_depth) },
+      footprint: b.footprint_geojson ? JSON.parse(b.footprint_geojson) : null,
+      dimensions: { width: parseFloat(b.footprint_width), depth: parseFloat(b.footprint_depth) },
       coordinates: { lat: b.lat, lon: b.lon },
       units: uResult.rows.map(u => ({
         id: u.id,
